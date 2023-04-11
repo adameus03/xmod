@@ -44,6 +44,7 @@ HANDLE get_comm(LPCSTR lp_file_name, DWORD baud_rate){
         throw "Error occured while trying to load COM timeouts";
     }
     timeouts.ReadTotalTimeoutConstant = 10000;
+    timeouts.WriteTotalTimeoutConstant = 10000;
     if(!SetCommTimeouts(handle, &timeouts)){
         throw "Error occured while trying to store COM timeouts";
     }
@@ -62,9 +63,14 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
     std::ifstream f(source_path, std::ifstream::binary);
     std::filebuf* f_pbuf = f.rdbuf();
     size_t sbuff_size = f_pbuf->pubseekoff(0, f.end, f.in);
+    uchar rem = sbuff_size % 128;
+    sbuff_size += 128 - rem;
     f_pbuf->pubseekpos(0, f.in);
     uchar* sbuff = new uchar[sbuff_size];
     f_pbuf->sgetn((char*)sbuff, sbuff_size);
+    for(uchar i=0x0; i<128-rem; i++){
+        *(sbuff+sbuff_size-0x80+rem+i) = 0x0;
+    }
     f.close();
 
     uchar* c = new uchar;
@@ -73,6 +79,8 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
     uchar* frame_head;
     uchar* sbuff_head = sbuff;
     uchar* sbuff_tail = sbuff+sbuff_size;
+    uchar blk_ix = 0x0;
+    uchar blk_ixc = 0xff;
     uchar* fb_written = new uchar;
     uchar fb_remaining;
     ReadFile(comm_handle, c, 0x1, NULL, NULL);
@@ -80,9 +88,9 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
     while(sbuff_head < sbuff_tail){
         frame_head = xmod_frame;
         *frame_head++ = mode;
-        *frame_head++ = 0x0;
-        *frame_head++ = 0xff;
-        memcpy(frame_head, sbuff, 0x80);
+        *frame_head++ = blk_ix++;
+        *frame_head++ = blk_ixc--;
+        memcpy(frame_head, sbuff_head, 0x80);
         frame_head += 0x80;
         if(mode == TRANSMIT_MODE::NO_CRC) *frame_head = adt_checksum(xmod_frame, 0x83);
         else {

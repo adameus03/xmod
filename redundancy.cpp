@@ -7,9 +7,10 @@ uchar adt_checksum(const uchar* data, uchar length){
     for(uchar i=0x0; i<length; i++){
         sum += *h++;
     }
-    return ~sum;
+    return sum;
 }
 
 ushort crc_16(const uchar* data, uchar length){
+
     return 0x0;
 }
