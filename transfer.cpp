@@ -42,7 +42,7 @@ HANDLE get_comm(LPCSTR lp_file_name, DWORD baud_rate){
     if(!GetCommTimeouts(handle, &timeouts)){
         throw "Error occured while trying to load COM timeouts";
     }
-    timeouts.WriteTotalTimeoutConstant = 10000;
+    timeouts.ReadTotalTimeoutConstant = 10000;
     if(!SetCommTimeouts(handle, &timeouts)){
         throw "Error occured while trying to store COM timeouts";
     }
@@ -125,12 +125,16 @@ void receive_file(const HANDLE comm_handle, const char* destination_path){
     uchar* xmod_cksum = xmod_frame+131;
     uchar* xmod_read = new uchar;
     uchar xmod_remaining;
+    uchar try_cnt = 0x0;
     *cw = NAK;
 
 
     while(true) {
-
-        do WriteFile(comm_handle, cw, 0x1, NULL, NULL); //dodac timeout + max 1'
+        try_cnt = 0x0;
+        do {
+            if(try_cnt++==0x7) throw "Receiving file failed due to transmitter inactivity!";
+            WriteFile(comm_handle, cw, 0x1, NULL, NULL); //dodac timeout + max 1'
+        }
         while(!ReadFile(comm_handle, cr, 0x1, NULL, NULL));
 
         *xmod_frame = *cr;

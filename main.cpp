@@ -4,6 +4,6 @@ using namespace std;
 
 int main()
 {
-    cout << "xmod (XMODEM file transfer tool)" << endl;
+    cout << "xmod (XMODEM file transfer tool via serial port)" << endl;
     return 0;
 }
