@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include "redundancy.h"
+#include <iostream>
 
 #define SOH 0x1   // 00000001
 #define EOT 0x4   // 00000100
@@ -76,7 +77,7 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
     uchar fb_remaining;
     ReadFile(comm_handle, c, 0x1, NULL, NULL);
 
-    while(sbuff_head != sbuff_tail){
+    while(sbuff_head < sbuff_tail){
         frame_head = xmod_frame;
         *frame_head++ = mode;
         *frame_head++ = 0x0;
@@ -92,20 +93,25 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
         *fb_written = 0x0;
         fb_remaining = 0x84;
         frame_head = xmod_frame;
+        std::cout << "Attempting to send XMODEM frame..." << std::endl;
         do {
             WriteFile(comm_handle, frame_head, fb_remaining, (LPDWORD)fb_written, NULL);
             fb_remaining -= *fb_written;
         }
         while(fb_remaining && (frame_head+=*fb_written));
+        std::cout << "Successfully sent XMODEM frame!" << std::endl;
         ReadFile(comm_handle, c, 0x1, NULL, NULL);
         if(*c == ACK){
             sbuff_head += 0x80;
         }
     }
     delete fb_written;
-    *c = EOT;
+
     do {
+        *c = EOT;
+        std::cout << "Attempting to send EOT" << std::endl;
         WriteFile(comm_handle, c, 0x1, NULL, NULL);
+        std::cout << "Successfully sent EOT" << std::endl;
         ReadFile(comm_handle, c, 0x1, NULL, NULL);
     }
     while(*c != ACK);
@@ -133,13 +139,21 @@ void receive_file(const HANDLE comm_handle, const char* destination_path){
         try_cnt = 0x0;
         do {
             if(try_cnt++==0x7) throw "Receiving file failed due to transmitter inactivity!";
+
+            if(*cw == NAK) std::cout << "Preparing to write NAK" << std::endl;
+            else if(*cw == ACK) std::cout << "Preparing to write ACK" << std::endl;
+
             WriteFile(comm_handle, cw, 0x1, NULL, NULL); //dodac timeout + max 1'
+
+            if(*cw == NAK) std::cout << "Completed NAK write" << std::endl;
+            else if(*cw == ACK) std::cout << "Completed ACK write" << std::endl;
         }
         while(!ReadFile(comm_handle, cr, 0x1, NULL, NULL));
 
         *xmod_frame = *cr;
 
         if(*cr == SOH){
+            std::cout << "[Received SOH]" << std::endl;
             frame_head = xmod_frame+1;
             *xmod_read = 0x0;
             xmod_remaining = 0x83;
@@ -159,6 +173,7 @@ void receive_file(const HANDLE comm_handle, const char* destination_path){
             }
         }
         else if(*cr == C){
+            std::cout << "[Received C]" << std::endl;
             frame_head = xmod_frame+1;
             *xmod_read = 0x0;
             xmod_remaining = 0x84;
@@ -180,10 +195,14 @@ void receive_file(const HANDLE comm_handle, const char* destination_path){
         }
         else if(*cr == EOT){
             *cw = ACK;
+            std::cout << "[Received EOT]" << std::endl;
+            std::cout << "Preparing to write ACK" << std::endl;
             WriteFile(comm_handle, cw, 0x1, NULL, NULL);
+            std::cout << "Completed ACK write" << std::endl;
             break;
         }
         else {
+            std::cout << "[Received unexpected signal]" << std::endl;
             PurgeComm(comm_handle, PURGE_RXCLEAR);
             *cw = NAK;
         }
