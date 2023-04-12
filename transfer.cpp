@@ -44,7 +44,7 @@ HANDLE get_comm(LPCSTR lp_file_name, DWORD baud_rate){
         throw "Error occured while trying to load COM timeouts";
     }
     timeouts.ReadTotalTimeoutConstant = 10000;
-    timeouts.WriteTotalTimeoutConstant = 10000;
+    timeouts.WriteTotalTimeoutConstant = 100;
     if(!SetCommTimeouts(handle, &timeouts)){
         throw "Error occured while trying to store COM timeouts";
     }
@@ -116,7 +116,11 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
         std::cout << "Successfully sent XMODEM frame!" << std::endl;
         ReadFile(comm_handle, c, 0x1, NULL, NULL);
         if(*c == ACK){
+            std::cout << "Read ACK!" << std::endl;
             sbuff_head += 0x80;
+        }
+        else {
+            std::cout << "Read NAK!" << std::endl;
         }
     }
     delete fb_written;
