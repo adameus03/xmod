@@ -32,6 +32,8 @@ int main(int argc, char** argv)
         if(strcmp("--crc16", argv[5])) { usage(*argv); return 0; }
     }
 
+    std::cout << "=====================================" << std::endl;
+
     try {
         HANDLE comm = get_comm(argv[2], atoi(argv[3]));
         if(transmission_direction == DIR_INSIDE){
@@ -45,9 +47,10 @@ int main(int argc, char** argv)
         }
         close_comm(comm);
     }
-    catch (char* message) {
+    catch (const char* message) {
         std::cerr << message << std::endl;
     }
+    std::cout << "=====================================" << std::endl;
 
     return 0;
 }

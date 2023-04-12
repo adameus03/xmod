@@ -49,6 +49,8 @@ HANDLE get_comm(LPCSTR lp_file_name, DWORD baud_rate){
         throw "Error occured while trying to store COM timeouts";
     }
 
+    //PurgeComm(handle, PURGE_RXCLEAR);
+
     return handle;
 }
 
@@ -92,14 +94,18 @@ void transmit_file(const HANDLE comm_handle, const char* source_path, TRANSMIT_M
         *frame_head++ = blk_ixc--;
         memcpy(frame_head, sbuff_head, 0x80);
         frame_head += 0x80;
-        if(mode == TRANSMIT_MODE::NO_CRC) *frame_head = adt_checksum(xmod_frame, 0x83);
+        if(mode == TRANSMIT_MODE::NO_CRC){
+            *frame_head = adt_checksum(xmod_frame, 0x83);
+            fb_remaining = 0x84;
+        }
         else {
             ushort ch = crc_16(xmod_frame, 0x83);
             *frame_head++ = ch >> 0x8;
-            *frame_head++ = ch & 0xff; // is the mask neccessary?
+            *frame_head = ch & 0xff; // is the mask neccessary?
+            fb_remaining = 0x85;
         }
         *fb_written = 0x0;
-        fb_remaining = 0x84;
+        //fb_remaining = 0x84;
         frame_head = xmod_frame;
         std::cout << "Attempting to send XMODEM frame..." << std::endl;
         do {
@@ -168,6 +174,7 @@ void receive_file(const HANDLE comm_handle, const char* destination_path){
             do {
                 ReadFile(comm_handle, frame_head, xmod_remaining, (LPDWORD)xmod_read, NULL);
                 xmod_remaining -= *xmod_read;
+                std::cout << "SOH handling...." << std::endl;
             }
             while(xmod_remaining && (frame_head+=*xmod_read));
 
@@ -188,16 +195,20 @@ void receive_file(const HANDLE comm_handle, const char* destination_path){
             do {
                 ReadFile(comm_handle, frame_head, xmod_remaining, (LPDWORD)xmod_read, NULL);
                 xmod_remaining -= *xmod_read;
+                std::cout << (int)(*xmod_read) << " read..." << std::endl;
+                std::cout << (int)(xmod_remaining) << " remaining..." << std::endl;
             }
             while(xmod_remaining && (frame_head+=*xmod_read));
 
             ushort ch = crc_16(xmod_frame, 0x83);
-            if(*xmod_cksum==ch>>0x8 && *(xmod_cksum+1)==ch&0xff){ // again, is 0xff masking neccessary?
+            if((*xmod_cksum==(ch>>0x8)) && (*(xmod_cksum+1)==(ch&0xff))){ // again, is 0xff masking neccessary?
+                std::cout << "Message correct [crc]" << std::endl;
                 *cw = ACK;
                 memcpy(dbuff_head, xmod_frame+3, 0x80);
                 dbuff_head += 0x80;
             }
             else {
+                std::cout << "Message incorrect [crc]" << std::endl;
                 *cw = NAK;
             }
         }

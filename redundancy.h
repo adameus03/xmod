@@ -1,6 +1,8 @@
 #ifndef REDUNDANCY_H_INCLUDED
 #define REDUNDANCY_H_INCLUDED
 
+#include <cstring>
+
 typedef unsigned char uchar;
 
 unsigned char adt_checksum(const uchar* data, uchar length);
